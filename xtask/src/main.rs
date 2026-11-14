@@ -1,3 +1,4 @@
+mod benchmarks;
 mod docs;
 mod package;
 mod setup;
@@ -24,6 +25,7 @@ fn execute() -> Result {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     match std::env::args().nth(1).as_deref() {
         Some("setup") => setup::check(root)?,
+        Some("bench-tests") => benchmarks::test_suites(root)?,
         Some("lint") => {
             run(root, "cargo", &["fmt", "--all", "--", "--check"])?;
             run(
@@ -34,6 +36,7 @@ fn execute() -> Result {
                     "--locked",
                     "--workspace",
                     "--all-targets",
+                    "--all-features",
                     "--",
                     "-D",
                     "warnings",
@@ -53,7 +56,7 @@ fn execute() -> Result {
             run(root, "actionlint", &[])?;
         }
         Some("package") => package::check(root)?,
-        _ => return Err("usage: cargo xtask <setup|lint|package>".into()),
+        _ => return Err("usage: cargo xtask <setup|lint|package|bench-tests>".into()),
     }
     Ok(())
 }
@@ -65,5 +68,48 @@ fn main() -> ExitCode {
             eprintln!("{error}");
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn cargo_warning_policy_rejects_warnings_but_allows_clean_builds() -> Result {
+        let directory = tempfile::tempdir()?;
+        fs::create_dir(directory.path().join("src"))?;
+        fs::write(
+            directory.path().join("Cargo.toml"),
+            "[package]\nname = \"warning-probe\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[workspace]\n",
+        )?;
+        let source = directory.path().join("src/main.rs");
+        fs::write(&source, "fn main() {}\n")?;
+        let config = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join(".cargo/config.toml");
+        let check = || {
+            Command::new("cargo")
+                .args(["check", "--offline", "--quiet", "--config"])
+                .arg(&config)
+                .current_dir(directory.path())
+                .env("CARGO_TARGET_DIR", directory.path().join("target"))
+                .output()
+        };
+        let clean = check()?;
+        assert!(
+            clean.status.success(),
+            "{}",
+            String::from_utf8_lossy(&clean.stderr)
+        );
+        fs::write(&source, "fn main() { let unused = 1; }\n")?;
+        let warning = check()?;
+        let stderr = String::from_utf8_lossy(&warning.stderr);
+        assert!(!warning.status.success(), "{stderr}");
+        assert!(stderr.contains("unused variable: `unused`"), "{stderr}");
+        assert!(stderr.contains("warnings are denied"), "{stderr}");
+        Ok(())
     }
 }

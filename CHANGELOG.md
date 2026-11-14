@@ -4,6 +4,15 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- [#36](https://github.com/dblock/rust-crate-release/pull/36): Centralize simulator endpoint validation, reuse single-read archive verification across hosting and local publication adapters, and add repeatable test-suite timings and function benchmarks without changing public APIs - [@dblock](https://github.com/dblock).
+- [#38](https://github.com/dblock/rust-crate-release/pull/38): Run isolated CLI fixture scenarios with four workers, retain every validation and failure assertion, reuse fixture Git handles, and report package phase and scenario timings - [@dblock](https://github.com/dblock).
+
+### Fixed
+
+- [#37](https://github.com/dblock/rust-crate-release/pull/37): Make Criterion an opt-in benchmark dependency, check benchmark features during lint validation, exercise package-metadata fixture dependencies, and fail contributor builds on compiler or Cargo lint warnings - [@dblock](https://github.com/dblock).
+
 ## [0.1.2] - 2026-11-12
 
 ### Added
